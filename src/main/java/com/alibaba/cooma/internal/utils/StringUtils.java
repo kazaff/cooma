@@ -37,7 +37,7 @@ public final class StringUtils {
 
     /**
      * Get the String of Throwable, like the output of {@link Throwable#printStackTrace()}.
-     *
+     * 这么处理异常的堆栈信息，就可以支持将其记录在文件中，为排错提供了完备的信息
      * @param head      the head line of message.
      * @param throwable the input throwable.
      */

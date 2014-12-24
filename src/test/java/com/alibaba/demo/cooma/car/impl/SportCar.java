@@ -26,7 +26,8 @@ public class SportCar implements Car {
 
     private Wheel wheel;
 
-    public void setWheel(Wheel wheel) {
+
+    public void setWheel(Wheel wheel) { //框架要想实现这种注入，应该会依赖反射拿到所有set开头的方法，然后通过参数类型去获取其它扩展点的实例
         this.wheel = wheel;
     }
 

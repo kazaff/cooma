@@ -124,6 +124,7 @@ public class ExtensionLoaderTest {
     @Test
     public void test_getExtension_DifferentInstance() throws Exception {
         ExtensionLoader<SimpleExt> extensionLoader = ExtensionLoader.getExtensionLoader(SimpleExt.class);
+        //证明每次都会返回一个新的实例
         assertNotSame(extensionLoader.getExtension("impl1"), extensionLoader.getExtension("impl1"));
     }
 

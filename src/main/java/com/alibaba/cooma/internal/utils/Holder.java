@@ -18,7 +18,7 @@ package com.alibaba.cooma.internal.utils;
 
 /**
  * Holds a value of type <code>T</code>.
- *
+ * 为所有泛型实例提供了一个统一的封装类型，便于框架之间耦合接口的统一
  * @author Jerry Lee(oldratlee AT gmail DOT com)
  * @since 0.1.0
  */

@@ -42,6 +42,7 @@ public class CarDemo {
 
         System.out.println("=================================");
 
+        //这个方法应该会根据参数的类型进行匹配，规则应该是把第二个开始的参数代表的类型注入到第一个参数的对应方法中
         Car car2 = extensionLoader.getExtension("sport", Utils.kv2Map(Wheel.class.getName(), "wood"));
         car2.run(); // 缺省使用RubberWheel
 
@@ -54,6 +55,7 @@ public class CarDemo {
 
         System.out.println("=================================");
 
+        //Map类型的为扩展点，List类型为wrapper
         Car countedSportCar1 = extensionLoader.getExtension("sport", Arrays.asList("run_counter"));
         Car countedSportCar2 = extensionLoader.getExtension("sport", Arrays.asList("run_counter"));
 

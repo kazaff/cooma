@@ -64,6 +64,7 @@ public class ExtensionLoader<T> {
     private static final Pattern NAME_SEPARATOR = Pattern.compile("\\s*,+\\s*");
     private static final Pattern NAME_PATTERN = Pattern.compile("[a-zA-Z0-9_]+");
 
+    //保存每个类和其扩展加载器的对应关系，可以保证框架不会导致因类加载器不同造成的类异常？
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS = new ConcurrentHashMap<Class<?>, ExtensionLoader<?>>();
 
     /**
@@ -232,6 +233,10 @@ public class ExtensionLoader<T> {
     private final Class<T> type;
     private final String defaultExtension;
 
+    /**
+     * 私有构造函数，用于为指定扩展点创建一个加载器实例，该扩展点可以指定一个默认扩展实现类
+     * @param type
+     */
     private ExtensionLoader(Class<T> type) {
         this.type = type;
 
@@ -259,9 +264,9 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     private T createExtension(String name, Map<String, String> properties) {
-        Class<?> clazz = getExtensionClass(name);
+        Class<?> clazz = getExtensionClass(name);   //拿到扩展点实现的类实例
         try {
-            return inject((T) clazz.newInstance(), properties);
+            return inject((T) clazz.newInstance(), properties); //若该扩展点实现依赖其他扩展点，则完成依赖注入
         } catch (Throwable t) {
             String msg = "Fail to create extension " + name +
                     " of extension point " + type.getName() + ", cause: " + t.getMessage();
@@ -273,6 +278,7 @@ public class ExtensionLoader<T> {
     private T createWrapper(T instance, Map<String, String> properties, List<String> wrappers) {
         if (wrappers != null) for (String name : wrappers) {
             try {
+                //wrapper类要想使用扩展点注入，需要自行实现对应的set方法
                 instance = inject(name2Wrapper.get(name).getConstructor(type).newInstance(instance), properties);
             } catch (Throwable e) {
                 throw new IllegalStateException("Fail to create wrapper(" + name + ") for extension point " + type);
@@ -282,6 +288,12 @@ public class ExtensionLoader<T> {
         return instance;
     }
 
+    /**
+     * 完成扩展点实现依赖其他扩展点的注入工作
+     * @param instance
+     * @param properties
+     * @return
+     */
     private T inject(T instance, Map<String, String> properties) {
         for (Method method : instance.getClass().getMethods()) {
             if (method.getName().startsWith("set")
@@ -316,16 +328,21 @@ public class ExtensionLoader<T> {
     // ====================================
 
     // Holder<Map<ext-name, ext-class>>
-    private final Holder<Map<String, Class<?>>> extClassesHolder = new Holder<Map<String, Class<?>>>();
-    private volatile Map<String, Map<String, String>> name2Attributes;
-    private final ConcurrentMap<Class<?>, String> extClass2Name = new ConcurrentHashMap<Class<?>, String>();
+    private final Holder<Map<String, Class<?>>> extClassesHolder = new Holder<Map<String, Class<?>>>(); //扩展点实现类的对应关系
+    private volatile Map<String, Map<String, String>> name2Attributes;  //扩展点实现类和对应属性的映射关系
+    private final ConcurrentMap<Class<?>, String> extClass2Name = new ConcurrentHashMap<Class<?>, String>();    //?
 
     private volatile Class<?> adaptiveClass = null;
 
-    private volatile Map<String, Class<? extends T>> name2Wrapper;
+    private volatile Map<String, Class<? extends T>> name2Wrapper;  //扩展点实现类和其wrapper的映射关系
 
     private final Map<String, IllegalStateException> extClassLoadExceptions = new ConcurrentHashMap<String, IllegalStateException>();
 
+    /**
+     * 拿到指定扩展实现的类型实例
+     * @param name
+     * @return
+     */
     private Class<?> getExtensionClass(String name) {
         if (name == null)
             throw new IllegalArgumentException("Extension name == null");
@@ -385,8 +402,8 @@ public class ExtensionLoader<T> {
         Map<String, Map<String, String>> tmpName2Attributes = new LinkedHashMap<String, Map<String, String>>();
         String fileName = null;
         try {
-            ClassLoader classLoader = getClassLoader();
-            fileName = EXTENSION_CONF_DIRECTORY + type.getName();
+            ClassLoader classLoader = getClassLoader(); //争取拿到相同的类加载器
+            fileName = EXTENSION_CONF_DIRECTORY + type.getName();   //定位要解析的扩展点的配置文件
             Enumeration<java.net.URL> urls;
             if (classLoader != null) {
                 urls = classLoader.getResources(fileName);
@@ -395,7 +412,7 @@ public class ExtensionLoader<T> {
             }
 
             if (urls != null) { // 找到的urls为null，或是没有找到文件，即认为是没有找到扩展点
-                while (urls.hasMoreElements()) {
+                while (urls.hasMoreElements()) {    //为什么会有多个配置文件呢？
                     java.net.URL url = urls.nextElement();
                     readExtension0(extName2Class, tmpName2Attributes, tmpName2Wrapper, classLoader, url);
                 }
@@ -438,6 +455,7 @@ public class ExtensionLoader<T> {
                         throw new IllegalStateException(
                                 "missing extension name, config value: " + config);
                     }
+                    //解析属性
                     int j = config.indexOf("(", i);
                     if (j > 0) {
                         if (config.charAt(config.length() - 1) != ')') {
@@ -455,7 +473,7 @@ public class ExtensionLoader<T> {
                                 + clazz.getName() + "is not subtype of interface.");
                     }
 
-                    if (name.startsWith(PREFIX_ADAPTIVE_CLASS)) {
+                    if (name.startsWith(PREFIX_ADAPTIVE_CLASS)) {   //自适应类处理
                         if (adaptiveClass == null) {
                             adaptiveClass = clazz;
                         } else if (!adaptiveClass.equals(clazz)) {
@@ -464,6 +482,7 @@ public class ExtensionLoader<T> {
                                     + ", " + clazz.getClass().getName());
                         }
                     } else {
+                        //wrapper处理
                         final boolean isWrapper = name.startsWith(PREFIX_WRAPPER_CLASS);
                         if (isWrapper)
                             name = name.substring(PREFIX_WRAPPER_CLASS.length());
@@ -477,7 +496,7 @@ public class ExtensionLoader<T> {
 
                             if (isWrapper) {
                                 try {
-                                    clazz.getConstructor(type);
+                                    clazz.getConstructor(type); //wrapper类必须有包含一个形参，类型为扩展点类型的构造函数
                                     name2Wrapper.put(name, clazz);
                                 } catch (NoSuchMethodException e) {
                                     throw new IllegalStateException("wrapper class(" + clazz +
@@ -485,13 +504,13 @@ public class ExtensionLoader<T> {
                                 }
                             } else {
                                 try {
-                                    clazz.getConstructor();
+                                    clazz.getConstructor(); //扩展点实现类必须拥有默认构造函数
                                 } catch (NoSuchMethodException e) {
                                     throw new IllegalStateException("extension class(" + clazz +
                                             ") has NO default constructor!", e);
                                 }
                                 if (extName2Class.containsKey(n)) {
-                                    if (extName2Class.get(n) != clazz) {
+                                    if (extName2Class.get(n) != clazz) {    //相同的扩展点实现类键名不能存在多个不同的实现类映射
                                         throw new IllegalStateException("Duplicate extension " +
                                                 type.getName() + " name " + n +
                                                 " on " + clazz.getName() + " and " + clazz.getName());
@@ -499,6 +518,7 @@ public class ExtensionLoader<T> {
                                 } else {
                                     extName2Class.put(n, clazz);
                                 }
+
                                 name2Attributes.put(n, parseExtAttribute(attribute));
 
                                 if (!extClass2Name.containsKey(clazz)) {
